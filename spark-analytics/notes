@@ -1,0 +1,21 @@
+Try these examples:
+List assets
+
+text
+List the first 5 assets from my warehouse
+Get asset details
+
+text
+Show me details for asset GOOGL
+List data sources
+
+text
+What data sources are available?
+Get data source details
+
+text
+Give me details for data source NASDAQ_API
+Get time series data
+
+text
+Get time series for GOOGL from 2024-01-01 to 2024-01-10 with attributes

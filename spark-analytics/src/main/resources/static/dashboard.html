@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Prediction Dashboard</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- DataTables CSS -->
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/dataTables.bootstrap5.min.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <!-- jQuery and DataTables JS -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.4/js/dataTables.bootstrap5.min.js"></script>
+    <style>
+        body { background: #f8f9fc; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .dashboard-header { background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); color: white; padding: 1.5rem 0; margin-bottom: 2rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .card { border-radius: 1rem; box-shadow: 0 10px 20px rgba(0,0,0,0.05); margin-bottom: 2rem; border: none; }
+        .card-header { background: white; border-bottom: 2px solid #e9ecef; font-weight: 600; padding: 1rem 1.5rem; border-radius: 1rem 1rem 0 0 !important; }
+        .btn-primary { background: #2a5298; border: none; padding: 0.5rem 2rem; border-radius: 2rem; }
+        .btn-primary:hover { background: #1e3c72; }
+        .table-container { overflow-x: auto; }
+        .chart-container { height: 400px; position: relative; }
+        .stats-card { background: white; border-radius: 1rem; padding: 1rem; text-align: center; box-shadow: 0 5px 15px rgba(0,0,0,0.05); height: 100%; }
+        .stats-number { font-size: 2rem; font-weight: 700; color: #2a5298; }
+        footer { text-align: center; margin-top: 3rem; padding: 1rem; color: #6c757d; }
+    </style>
+</head>
+<body>
+<div class="dashboard-header">
+    <div class="container">
+        <h1><i class="bi bi-graph-up"></i> Stock Price Prediction Dashboard</h1>
+        <p class="lead mb-0">Actual vs Predicted values from Linear Regression model</p>
+    </div>
+</div>
+
+<div class="container">
+    <!-- Asset Selector -->
+    <div class="card">
+        <div class="card-header">
+            <i class="bi bi-search"></i> Select Asset
+        </div>
+        <div class="card-body">
+            <div class="row align-items-end">
+                <div class="col-md-8">
+                    <label for="assetSelect" class="form-label">Asset ID</label>
+                    <select id="assetSelect" class="form-select form-select-lg">
+                        <option value="AMD">AMD</option>
+                        <option value="GOOGL" selected>GOOGL</option>
+                        <option value="ADBE">ADBE</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <button id="loadBtn" class="btn btn-primary w-100">Load Predictions</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Row -->
+    <div class="row mb-4" id="statsRow" style="display: none;">
+        <div class="col-md-3">
+            <div class="stats-card">
+                <h6>Total Predictions</h6>
+                <div class="stats-number" id="totalCount">-</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card">
+                <h6>Mean Absolute Error (MAE)</h6>
+                <div class="stats-number" id="mae">-</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card">
+                <h6>R² Score</h6>
+                <div class="stats-number" id="r2">-</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card">
+                <h6>Date Range</h6>
+                <div class="stats-number" id="dateRange" style="font-size: 1.2rem;">-</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chart Card -->
+    <div class="card" id="chartCard" style="display: none;">
+        <div class="card-header">
+            <i class="bi bi-graph-up"></i> Actual vs Predicted (Time Series)
+        </div>
+        <div class="card-body">
+            <div class="chart-container">
+                <canvas id="predictionChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Data Table Card -->
+    <div class="card" id="tableCard" style="display: none;">
+        <div class="card-header">
+            <i class="bi bi-table"></i> Prediction Details
+        </div>
+        <div class="card-body table-container">
+            <table id="predictionsTable" class="table table-striped table-hover" style="width:100%">
+                <thead>
+                <tr><th>Date</th><th>Actual (Open Price)</th><th>Predicted</th><th>Absolute Error</th></tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+    <footer>Powered by Apache Spark & Linear Regression | Data from Cassandra</footer>
+</div>
+
+<script>
+    let chartInstance = null;
+    let dataTable = null;
+
+    // Safely set display style – no error if element missing
+    function setDisplay(id, value) {
+        const el = document.getElementById(id);
+        if (el) el.style.display = value;
+        else console.warn(`Element #${id} not found, cannot set display.`);
+    }
+
+    // Safely set text content
+    function setText(id, text) {
+        const el = document.getElementById(id);
+        if (el) el.innerText = text;
+        else console.warn(`Element #${id} not found, cannot set text.`);
+    }
+
+    async function loadPredictions() {
+        const assetSelect = document.getElementById('assetSelect');
+        const loadBtn = document.getElementById('loadBtn');
+        if (!assetSelect || !loadBtn) {
+            console.error("Required elements missing");
+            return;
+        }
+        const assetId = assetSelect.value;
+        const originalText = loadBtn.innerHTML;
+        loadBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Loading...';
+        loadBtn.disabled = true;
+
+        try {
+            const response = await fetch(`/api/analytics/prediction_results/${assetId}`);
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            const data = await response.json();
+            if (!data || data.length === 0) {
+                alert(`No prediction results found for asset: ${assetId}`);
+                return;
+            }
+
+            // Prepare data
+            const formatted = data.map(item => ({
+                date: new Date(item.time * 1000),
+                actual: item.actual,
+                predicted: item.predicted,
+                absError: Math.abs(item.actual - item.predicted)
+            })).sort((a,b) => a.date - b.date);
+
+            // Calculate stats
+            const total = formatted.length;
+            const mae = formatted.reduce((sum, d) => sum + d.absError, 0) / total;
+            const meanActual = formatted.reduce((sum,d) => sum + d.actual,0)/total;
+            const ssRes = formatted.reduce((sum,d) => sum + Math.pow(d.actual - d.predicted,2),0);
+            const ssTot = formatted.reduce((sum,d) => sum + Math.pow(d.actual - meanActual,2),0);
+            const r2 = 1 - (ssRes/ssTot);
+            const startDate = formatted[0].date.toLocaleDateString();
+            const endDate = formatted[formatted.length-1].date.toLocaleDateString();
+
+            setText('totalCount', total);
+            setText('mae', mae.toFixed(2));
+            setText('r2', r2.toFixed(4));
+            setText('dateRange', `${startDate} – ${endDate}`);
+
+            // Show cards
+            setDisplay('statsRow', 'flex');
+            setDisplay('chartCard', 'block');
+            setDisplay('tableCard', 'block');
+
+            // Chart
+            const canvas = document.getElementById('predictionChart');
+            if (canvas) {
+                if (chartInstance) chartInstance.destroy();
+                const ctx = canvas.getContext('2d');
+                const labels = formatted.map(d => d.date.toLocaleDateString());
+                const step = Math.ceil(labels.length / 15);
+                const displayedLabels = labels.map((l,i) => i % step === 0 ? l : '');
+                chartInstance = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: displayedLabels,
+                        datasets: [
+                            {
+                                label: 'Actual Price (Open)',
+                                data: formatted.map(d => d.actual),
+                                borderColor: 'rgb(75, 192, 192)',
+                                backgroundColor: 'rgba(75, 192, 192, 0.1)',
+                                tension: 0.1,
+                                fill: true,
+                                pointRadius: 2
+                            },
+                            {
+                                label: 'Predicted Price',
+                                data: formatted.map(d => d.predicted),
+                                borderColor: 'rgb(255, 99, 132)',
+                                backgroundColor: 'rgba(255, 99, 132, 0.1)',
+                                tension: 0.1,
+                                fill: true,
+                                pointRadius: 2
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        plugins: {
+                            tooltip: { mode: 'index', intersect: false },
+                            legend: { position: 'top' }
+                        },
+                        scales: {
+                            x: { title: { display: true, text: 'Date' } },
+                            y: { title: { display: true, text: 'Price (USD)' } }
+                        }
+                    }
+                });
+            } else {
+                console.warn("Canvas #predictionChart not found");
+            }
+
+            // DataTable
+            const tableElement = document.getElementById('predictionsTable');
+            if (tableElement) {
+                if (dataTable) {
+                    dataTable.clear().destroy();
+                }
+                const tableData = formatted.map(d => [
+                    d.date.toLocaleDateString(),
+                    d.actual.toFixed(2),
+                    d.predicted.toFixed(2),
+                    d.absError.toFixed(2),
+                    d.date.getTime()   // hidden for sorting
+                ]);
+                dataTable = $('#predictionsTable').DataTable({
+                    data: tableData,
+                    pageLength: 25,
+                    order: [[4, 'asc']],   // sort by timestamp
+                    columns: [
+                        { title: "Date" },
+                        { title: "Actual (Open)", className: "text-end" },
+                        { title: "Predicted", className: "text-end" },
+                        { title: "|Error|", className: "text-end" },
+                        { title: "timestamp", visible: false }
+                    ],
+                    language: { search: "Filter:" },
+                    destroy: true
+                });
+            } else {
+                console.warn("Table #predictionsTable not found");
+            }
+
+        } catch (error) {
+            console.error(error);
+            alert(`Error loading predictions: ${error.message}`);
+        } finally {
+            loadBtn.innerHTML = originalText;
+            loadBtn.disabled = false;
+        }
+    }
+
+    const loadBtn = document.getElementById('loadBtn');
+    if (loadBtn) loadBtn.addEventListener('click', loadPredictions);
+    window.addEventListener('load', loadPredictions);
+</script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+</body>
+</html>

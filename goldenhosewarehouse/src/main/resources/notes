@@ -1,0 +1,26 @@
+docker start d50403644315
+docker exec -it d50403644315 cqlsh
+USE acme_productions;
+
+
+docker start suspicious_dirac
+
+docker exec -it suspicious_dirac cqlsh
+
+docker start cassandra-server
+docker exec -it cassandra-server cqlsh
+
+USE acme_productions;
+rabitMQ:
+http://localhost:15672/#/queues/%2F/nasdaqqueue
+
+
+
+docker run -d --name rabbitmq -p 5672:5672 -p 15672:15672 rabbitmq:management
+
+getassetsu_user defined pagination
+GET http://localhost:8080/api/assets/userpaged?limit=5
+select *
+
+
+

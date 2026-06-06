@@ -1,0 +1,13 @@
+2026-04-27 20:12:23.786 | Starting StreamingClientApplication using Java 17.0.17 with PID 23524 (E:\Data Journey\Subjects\Data Warehous\project\code\Streaming-Client\target\classes started by thbea in E:\Data Journey\Subjects\Data Warehous\project\code\Streaming-Client)
+2026-04-27 20:12:23.796 | No active profile set, falling back to 1 default profile: "default"
+2026-04-27 20:12:25.041 | BeanFactory id=a11f8e24-c83e-3eb8-b31b-782abc06ac53
+2026-04-27 20:12:25.495 | Tomcat initialized with port 8081 (http)
+2026-04-27 20:12:25.515 | Initializing ProtocolHandler ["http-nio-8081"]
+2026-04-27 20:12:25.519 | Starting service [Tomcat]
+2026-04-27 20:12:25.520 | Starting Servlet engine: [Apache Tomcat/11.0.21]
+2026-04-27 20:12:25.623 | Root WebApplicationContext: initialization completed in 1721 ms
+2026-04-27 20:12:26.902 | Starting ProtocolHandler ["http-nio-8081"]
+2026-04-27 20:12:26.960 | Tomcat started on port 8081 (http) with context path '/'
+2026-04-27 20:12:27.229 | Started StreamingClientApplication in 4.713 seconds (process running for 6.143)
+2026-04-27 21:07:47.414 | Commencing graceful shutdown. Waiting for active requests to complete
+2026-04-27 21:07:48.048 | Graceful shutdown complete

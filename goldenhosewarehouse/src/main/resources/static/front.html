@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Golden Hose Warehouse · API Console</title>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet"/>
+    <style>
+        :root {
+            --bg: #0b0c0f;
+            --panel: #111318;
+            --border: #1e2229;
+            --border-bright: #2e3340;
+            --accent: #f0c040;
+            --accent2: #40c0f0;
+            --accent3: #f04070;
+            --text: #d4d8e2;
+            --text-dim: #6b7280;
+            --text-bright: #f0f2f8;
+            --success: #34d399;
+            --error: #f87171;
+            --mono: 'IBM Plex Mono', monospace;
+            --sans: 'Syne', sans-serif;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: var(--mono);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image:
+                    linear-gradient(rgba(240,192,64,0.03) 1px, transparent 1px),
+                    linear-gradient(90deg, rgba(240,192,64,0.03) 1px, transparent 1px);
+            background-size: 40px 40px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        header {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: rgba(11,12,15,0.92);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border);
+            padding: 0 32px;
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            height: 56px;
+        }
+
+        .logo { font-family: var(--sans); font-weight: 800; font-size: 15px; letter-spacing: 0.08em; color: var(--accent); text-transform: uppercase; }
+        .logo span { color: var(--text-dim); font-weight: 400; }
+        .header-tag { font-size: 10px; color: var(--text-dim); border: 1px solid var(--border-bright); padding: 2px 8px; border-radius: 2px; letter-spacing: 0.1em; text-transform: uppercase; }
+
+        .base-url-bar { margin-left: auto; display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--text-dim); }
+        .base-url-bar input { background: var(--border); border: 1px solid var(--border-bright); color: var(--accent2); font-family: var(--mono); font-size: 11px; padding: 4px 10px; border-radius: 3px; width: 220px; outline: none; }
+        .base-url-bar input:focus { border-color: var(--accent2); }
+
+        .layout { position: relative; z-index: 1; display: grid; grid-template-columns: 230px 1fr; min-height: calc(100vh - 56px); }
+
+        nav { border-right: 1px solid var(--border); padding: 20px 0; position: sticky; top: 56px; height: calc(100vh - 56px); overflow-y: auto; }
+        .nav-group { margin-bottom: 4px; }
+        .nav-group-label { font-family: var(--sans); font-size: 9px; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; color: var(--text-dim); padding: 10px 20px 4px; }
+        .nav-item { display: flex; align-items: center; gap: 8px; padding: 7px 20px; cursor: pointer; font-size: 11px; color: var(--text-dim); transition: all 0.15s; border-left: 2px solid transparent; }
+        .nav-item:hover { color: var(--text); background: rgba(255,255,255,0.03); }
+        .nav-item.active { color: var(--accent); border-left-color: var(--accent); background: rgba(240,192,64,0.05); }
+
+        /* Featured nav item */
+        .nav-item.featured { background: rgba(240,192,64,0.08); border-left: 2px solid rgba(240,192,64,0.4); color: var(--accent); }
+        .nav-item.featured:hover { background: rgba(240,192,64,0.13); }
+        .nav-item.featured.active { border-left-color: var(--accent); background: rgba(240,192,64,0.15); }
+
+        .method-badge { font-size: 9px; font-weight: 600; padding: 1px 5px; border-radius: 2px; letter-spacing: 0.05em; flex-shrink: 0; }
+        .GET  { background: rgba(52,211,153,0.15); color: var(--success); }
+        .POST { background: rgba(64,192,240,0.15); color: var(--accent2); }
+        .PUT  { background: rgba(240,192,64,0.15); color: var(--accent); }
+
+        main { padding: 32px; display: flex; flex-direction: column; gap: 0; }
+
+        .panel { display: none; flex-direction: column; gap: 20px; animation: fadeIn 0.2s ease; }
+        .panel.active { display: flex; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+        .panel-header { display: flex; align-items: flex-start; gap: 16px; padding-bottom: 20px; border-bottom: 1px solid var(--border); }
+        .panel-method { font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 3px; margin-top: 2px; flex-shrink: 0; }
+        .panel-info h2 { font-family: var(--sans); font-size: 18px; font-weight: 700; color: var(--text-bright); margin-bottom: 4px; }
+        .panel-info .endpoint-path { font-size: 12px; color: var(--text-dim); }
+        .panel-info .endpoint-path em { color: var(--accent2); font-style: normal; }
+
+        /* Featured panel highlight */
+        .panel-featured-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(240,192,64,0.12);
+            border: 1px solid rgba(240,192,64,0.3);
+            color: var(--accent);
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            padding: 4px 12px;
+            border-radius: 3px;
+            margin-bottom: 4px;
+        }
+
+        .callout {
+            background: rgba(240,192,64,0.06);
+            border: 1px solid rgba(240,192,64,0.2);
+            border-radius: 6px;
+            padding: 12px 16px;
+            font-size: 11px;
+            color: var(--text-dim);
+            line-height: 1.7;
+        }
+        .callout strong { color: var(--accent); }
+
+        .warning-callout {
+            background: rgba(240,64,112,0.06);
+            border: 1px solid rgba(240,64,112,0.25);
+            border-radius: 6px;
+            padding: 10px 16px;
+            font-size: 11px;
+            color: #f87171;
+            line-height: 1.6;
+        }
+
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
+        .form-grid.full { grid-template-columns: 1fr; }
+        .form-grid.cols3 { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
+
+        .field { display: flex; flex-direction: column; gap: 6px; }
+        .field label { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-dim); }
+        .field label .required { color: var(--accent3); margin-left: 2px; }
+        .field input, .field textarea, .field select { background: var(--panel); border: 1px solid var(--border-bright); color: var(--text); font-family: var(--mono); font-size: 12px; padding: 9px 12px; border-radius: 4px; outline: none; transition: border-color 0.15s; resize: vertical; }
+        .field input:focus, .field textarea:focus, .field select:focus { border-color: var(--accent); }
+        .field textarea { min-height: 120px; }
+
+        /* Pagination controls */
+        .pagination-bar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .pagination-bar button {
+            font-family: var(--mono);
+            font-size: 11px;
+            background: var(--panel);
+            border: 1px solid var(--border-bright);
+            color: var(--text);
+            padding: 6px 14px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .pagination-bar button:hover { border-color: var(--accent); color: var(--accent); }
+        .pagination-bar button:disabled { opacity: 0.3; cursor: not-allowed; }
+        .pagination-bar .page-info { font-size: 11px; color: var(--text-dim); }
+
+        .btn { font-family: var(--sans); font-weight: 700; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; padding: 10px 24px; border: none; border-radius: 4px; cursor: pointer; transition: all 0.15s; align-self: flex-start; }
+        .btn-primary { background: var(--accent); color: #0b0c0f; }
+        .btn-primary:hover { background: #f5d060; transform: translateY(-1px); box-shadow: 0 4px 16px rgba(240,192,64,0.3); }
+        .btn-blue { background: var(--accent2); color: #0b0c0f; }
+        .btn-blue:hover { background: #60d0f8; transform: translateY(-1px); box-shadow: 0 4px 16px rgba(64,192,240,0.3); }
+        .btn-lg { padding: 13px 32px; font-size: 13px; }
+        .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none !important; }
+
+        .response-box { background: var(--panel); border: 1px solid var(--border-bright); border-radius: 6px; overflow: hidden; }
+        .response-box-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; border-bottom: 1px solid var(--border); background: rgba(255,255,255,0.02); }
+        .response-box-header .label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-dim); }
+
+        .status-chip { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 2px; letter-spacing: 0.05em; }
+        .status-ok  { background: rgba(52,211,153,0.15); color: var(--success); }
+        .status-err { background: rgba(248,113,113,0.15); color: var(--error); }
+        .status-idle { background: var(--border); color: var(--text-dim); }
+
+        .response-body { padding: 16px; font-size: 11px; line-height: 1.7; color: var(--text); max-height: 500px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; }
+        .response-body.empty { color: var(--text-dim); font-style: italic; }
+
+        .spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid var(--border-bright); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.6s linear infinite; vertical-align: middle; margin-right: 6px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .json-key  { color: var(--accent2); }
+        .json-str  { color: var(--success); }
+        .json-num  { color: var(--accent); }
+        .json-bool { color: var(--accent3); }
+        .json-null { color: var(--text-dim); }
+
+        .section-title { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-dim); margin-bottom: 2px; }
+
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border-bright); border-radius: 2px; }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="logo">Golden Hose <span>/ Warehouse</span></div>
+    <div class="header-tag">API Console</div>
+    <div class="base-url-bar">
+        <span>Base URL</span>
+        <input id="baseUrl" value="http://localhost:8080" placeholder="http://localhost:8080"/>
+    </div>
+</header>
+
+<div class="layout">
+
+    <nav>
+        <div class="nav-group">
+            <div class="nav-group-label">⭐ Quick Access</div>
+            <div class="nav-item featured active" onclick="show('data-formatted')">
+                <span class="method-badge GET">GET</span> Formatted Time Series
+            </div>
+        </div>
+
+        <div class="nav-group">
+            <div class="nav-group-label">Assets</div>
+            <div class="nav-item" onclick="show('asset-list')"><span class="method-badge GET">GET</span> List All Assets</div>
+            <div class="nav-item" onclick="show('asset-get')"><span class="method-badge GET">GET</span> Get Asset History</div>
+            <div class="nav-item" onclick="show('asset-latest')"><span class="method-badge GET">GET</span> Get Latest Asset</div>
+            <div class="nav-item" onclick="show('asset-create')"><span class="method-badge POST">POST</span> Create Asset</div>
+            <div class="nav-item" onclick="show('asset-update')"><span class="method-badge PUT">PUT</span> Update Asset</div>
+        </div>
+
+        <div class="nav-group">
+            <div class="nav-group-label">Data</div>
+            <div class="nav-item" onclick="show('data-range')"><span class="method-badge GET">GET</span> Time Series Range</div>
+            <div class="nav-item" onclick="show('data-formatted2')"><span class="method-badge GET">GET</span> Formatted Time Series</div>
+            <div class="nav-item" onclick="show('data-create')"><span class="method-badge POST">POST</span> Create Data Record</div>
+        </div>
+
+        <div class="nav-group">
+            <div class="nav-group-label">Sources</div>
+            <div class="nav-item" onclick="show('source-list')"><span class="method-badge GET">GET</span> List All Sources</div>
+            <div class="nav-item" onclick="show('source-get')"><span class="method-badge GET">GET</span> Get Source by ID</div>
+            <div class="nav-item" onclick="show('source-create')"><span class="method-badge POST">POST</span> Create Source</div>
+            <div class="nav-item" onclick="show('source-update')"><span class="method-badge PUT">PUT</span> Update Source</div>
+        </div>
+
+        <div class="nav-group">
+            <div class="nav-group-label">Ingestion</div>
+            <div class="nav-item" onclick="show('ingest')"><span class="method-badge POST">POST</span> Ingest ETL Data</div>
+        </div>
+    </nav>
+
+    <main>
+
+        <!-- ★ FEATURED: Formatted Time Series (Quick Access) -->
+        <div class="panel active" id="panel-data-formatted">
+            <div class="panel-header">
+                <span class="panel-method GET">GET</span>
+                <div class="panel-info">
+                    <div class="panel-featured-badge">⭐ Recommended — Paginated &amp; Safe</div>
+                    <h2>Formatted Time Series</h2>
+                    <div class="endpoint-path"><em>/api/data?assetId=&amp;dataSourceId=&amp;startBusinessDate=&amp;endBusinessDate=&amp;...</em></div>
+                </div>
+            </div>
+
+            <div class="callout">
+                <strong>Use this endpoint</strong> to query time series data safely. It supports <strong>pagination</strong> (page + size) so the browser never freezes.
+                Fill in the fields below and click <strong>Send Request</strong>. Use <strong>Prev / Next</strong> to page through results.
+            </div>
+
+            <div class="form-grid cols3">
+                <div class="field">
+                    <label>Asset ID <span class="required">*</span></label>
+                    <input id="df-asset" placeholder="e.g. ADBE" value="ADBE"/>
+                </div>
+                <div class="field">
+                    <label>Data Source ID <span class="required">*</span></label>
+                    <input id="df-source" placeholder="e.g. NASDAQ_API" value="NASDAQ_API"/>
+                </div>
+                <div class="field">
+                    <label>Start Business Date <span class="required">*</span></label>
+                    <input id="df-start" type="date" value="2016-01-01"/>
+                </div>
+                <div class="field">
+                    <label>End Business Date <span class="required">*</span></label>
+                    <input id="df-end" type="date" value="2017-01-01"/>
+                </div>
+                <div class="field">
+                    <label>Include Attributes</label>
+                    <select id="df-attrs">
+                        <option value="false">false</option>
+                        <option value="true">true</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label>Page Size (rows per page)</label>
+                    <select id="df-size">
+                        <option value="10">10</option>
+                        <option value="20" selected>20</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                    </select>
+                </div>
+            </div>
+
+            <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+                <button class="btn btn-primary btn-lg" onclick="dfSearch()">🔍 Send Request</button>
+                <div class="pagination-bar" id="df-pagination" style="display:none;">
+                    <button onclick="dfPage(-1)" id="df-prev">◀ Prev</button>
+                    <span class="page-info" id="df-page-info">Page 1</span>
+                    <button onclick="dfPage(1)" id="df-next">Next ▶</button>
+                </div>
+            </div>
+
+            <div class="response-box">
+                <div class="response-box-header">
+                    <span class="label">Response</span>
+                    <span class="status-chip status-idle" id="status-data-formatted">—</span>
+                </div>
+                <div class="response-body empty" id="body-data-formatted">Fill in the fields above and click Send Request.</div>
+            </div>
+        </div>
+
+        <!-- Formatted Time Series (Data section duplicate — same logic) -->
+        <div class="panel" id="panel-data-formatted2">
+            <div class="panel-header">
+                <span class="panel-method GET">GET</span>
+                <div class="panel-info">
+                    <h2>Formatted Time Series</h2>
+                    <div class="endpoint-path"><em>/api/data?assetId=&amp;dataSourceId=&amp;...</em></div>
+                </div>
+            </div>
+            <div class="callout"><strong>Same endpoint as Quick Access.</strong> Redirecting you there for the best experience.</div>
+            <button class="btn btn-primary" onclick="show('data-formatted'); document.querySelector('.nav-item.featured').classList.add('active');">Go to Formatted Time Series →</button>
+        </div>
+
+        <!-- List All Assets -->
+        <div class="panel" id="panel-asset-list">
+            <div class="panel-header">
+                <span class="panel-method GET">GET</span>
+                <div class="panel-info"><h2>List All Assets</h2><div class="endpoint-path"><em>/api/assets</em></div></div>
+            </div>
+            <button class="btn btn-primary" onclick="call('asset-list')">Send Request</button>
+            <div class="response-box">
+                <div class="response-box-header"><span class="label">Response</span><span class="status-chip status-idle" id="status-asset-list">—</span></div>
+                <div class="response-body empty" id="body-asset-list">No response yet.</div>
+            </div>
+        </div>
+
+        <!-- Get Asset History -->
+        <div class="panel" id="panel-asset-get">
+            <div class="panel-header">
+                <span class="panel-method GET">GET</span>
+                <div class="panel-info"><h2>Get Asset History</h2><div class="endpoint-path"><em>/api/assets/{id}</em></div></div>
+            </div>
+            <div class="form-grid">
+                <div class="field"><label>Asset ID <span class="required">*</span></label><input id="ag-id" placeholder="e.g. AAPL"/></div>
+            </div>
+            <button class="btn btn-primary" onclick="call('asset-get')">Send Request</button>
+            <div class="response-box">
+                <div class="response-box-header"><span class="label">Response</span><span class="status-chip status-idle" id="status-asset-get">—</span></div>
+                <div class="response-body empty" id="body-asset-get">No response yet.</div>
+            </div>
+        </div>
+
+        <!-- Get Latest Asset -->
+        <div class="panel" id="panel-asset-latest">
+            <div class="panel-header">
+                <span class="panel-method GET">GET</span>
+                <div class="panel-info"><h2>Get Latest Asset</h2><div class="endpoint-path"><em>/api/assets/{id}/latest</em></div></div>
+            </div>
+            <div class="form-grid">
+                <div class="field"><label>Asset ID <span class="required">*</span></label><input id="al-id" placeholder="e.g. AAPL"/></div>
+            </div>
+            <button class="btn btn-primary" onclick="call('asset-latest')">Send Request</button>
+            <div class="response-box">
+                <div class="response-box-header"><span class="label">Response</span><span class="status-chip status-idle" id="status-asset-latest">—</span></div>
+                <div class="response-body empty" id="body-asset-latest">No response yet.</div>
+            </div>
+        </div>
+
+        <!-- Create Asset -->
+        <div class="panel" id="panel-asset-create">
+            <div class="panel-header">
+                <span class="panel-method POST">POST</span>
+                <div class="panel-info"><h2>Create Asset</h2><div class="endpoint-path"><em>/api/assets/create</em></div></div>
+            </div>
+            <div class="section-title">Request Body (JSON)</div>
+            <div class="form-grid full">
+                <div class="field">
+                    <label>Payload <span class="required">*</span></label>
+                    <textarea id="ac-body">{
+  "id": "Crypto",
+  "name": "Bit Coin.",
+  "description": "for E Commerce.",
+  "attributes": {
+    "sector": "Blocks",
+    "currency": "dollars",
+    "owner": "none"
+  }
+}</textarea>
+                </div>
+            </div>
+            <button class="btn btn-blue" onclick="call('asset-create')">Send Request</button>
+            <div class="response-box">
+                <div class="response-box-header"><span class="label">Response</span><span class="status-chip status-idle" id="status-asset-create">—</span></div>
+                <div class="response-body empty" id="body-asset-create">No response yet.</div>
+            </div>
+        </div>
+
+        <!-- Update Asset -->
+        <div class="panel" id="panel-asset-update">
+            <div class="panel-header">
+                <span class="panel-method PUT">PUT</span>
+                <div class="panel-info"><h2>Update Asset</h2><div class="endpoint-path"><em>/api/assets/{id}</em></div></div>
+            </div>
+            <div class="form-grid">
+                <div class="field"><label>Asset ID <span class="required">*</span></label><input id="au-id" placeholder="e.g. AAPL"/></div>
+            </div>
+            <div class="field">
+                <label>Payload <span class="required">*</span></label>
+                <textarea id="au-body">{
+  "name": "Apple Inc. (Updated)",
+  "type": "EQUITY"
+}</textarea>
+            </div>
+            <button class="btn btn-primary" onclick="call('asset-update')">Send Request</button>
+            <div class="response-box">
+                <div class="response-box-header"><span class="label">Response</span><span class="status-chip status-idle" id="status-asset-update">—</span></div>
+                <div class="response-body empty" id="body-asset-update">No response yet.</div>
+            </div>
+        </div>
+
+
+
+        <!-- Time Series Range -->
+        <div class="panel" id="panel-data-range">
+            <div class="panel-header">
+                <span class="panel-method GET">GET</span>
+                <div class="panel-info"><h2>Time Series by Range</h2><div class="endpoint-path"><em>/api/data/{assetId}/{sourceId}/range?start=&amp;end=</em></div></div>
+            </div>
+            <div class="warning-callout">
+                ⚠️ <strong>Warning:</strong> This endpoint has no pagination. Use a narrow date range to avoid freezing the browser.
+            </div>
+            <div class="form-grid">
+                <div class="field"><label>Asset ID <span class="required">*</span></label><input id="dr-asset" placeholder="e.g. AAPL"/></div>
+                <div class="field"><label>Source ID <span class="required">*</span></label><input id="dr-source" placeholder="e.g. bloomberg"/></div>
+                <div class="field"><label>Start Date <span class="required">*</span></label><input id="dr-start" type="date" value="2026-01-01"/></div>
+                <div class="field"><label>End Date <span class="required">*</span></label><input id="dr-end" type="date" value="2026-03-31"/></div>
+            </div>
+            <button class="btn btn-primary" onclick="call('data-range')">Send Request</button>
+            <div class="response-box">
+                <div class="response-box-header"><span class="label">Response</span><span class="status-chip status-idle" id="status-data-range">—</span></div>
+                <div class="response-body empty" id="body-data-range">No response yet.</div>
+            </div>
+        </div>
+
+        <!-- Create Data Record -->
+        <div class="panel" id="panel-data-create">
+            <div class="panel-header">
+                <span class="panel-method POST">POST</span>
+                <div class="panel-info"><h2>Create Data Record</h2><div class="endpoint-path"><em>/api/data</em></div></div>
+            </div>
+            <div class="section-title">Request Body (JSON)</div>
+            <div class="form-grid full">
+                <div class="field">
+                    <label>Payload <span class="required">*</span></label>
+                    <textarea id="dc-body">{
+  "assetId": "AAPL",
+  "dataSourceId": "bloomberg",
+  "businessDate": "2026-06-01",
+  "valuesdouble": {
+    "price": 182.5,
+    "open": 180.0,
+    "high": 184.0,
+    "volume": 35000000
+  }
+}</textarea>
+                </div>
+            </div>
+            <button class="btn btn-blue" onclick="call('data-create')">Send Request</button>
+            <div class="response-box">
+                <div class="response-box-header"><span class="label">Response</span><span class="status-chip status-idle" id="status-data-create">—</span></div>
+                <div class="response-body empty" id="body-data-create">No response yet.</div>
+            </div>
+        </div>
+
+        <!-- List All Sources -->
+        <div class="panel" id="panel-source-list">
+            <div class="panel-header">
+                <span class="panel-method GET">GET</span>
+                <div class="panel-info"><h2>List All Sources</h2><div class="endpoint-path"><em>/api/sources</em></div></div>
+            </div>
+            <button class="btn btn-primary" onclick="call('source-list')">Send Request</button>
+            <div class="response-box">
+                <div class="response-box-header"><span class="label">Response</span><span class="status-chip status-idle" id="status-source-list">—</span></div>
+                <div class="response-body empty" id="body-source-list">No response yet.</div>
+            </div>
+        </div>
+
+        <!-- Get Source by ID -->
+        <div class="panel" id="panel-source-get">
+            <div class="panel-header">
+                <span class="panel-method GET">GET</span>
+                <div class="panel-info"><h2>Get Source by ID</h2><div class="endpoint-path"><em>/api/sources/{id}</em></div></div>
+            </div>
+            <div class="form-grid">
+                <div class="field"><label>Source ID <span class="required">*</span></label><input id="sg-id" placeholder="e.g. bloomberg"/></div>
+            </div>
+            <button class="btn btn-primary" onclick="call('source-get')">Send Request</button>
+            <div class="response-box">
+                <div class="response-box-header"><span class="label">Response</span><span class="status-chip status-idle" id="status-source-get">—</span></div>
+                <div class="response-body empty" id="body-source-get">No response yet.</div>
+            </div>
+        </div>
+
+        <!-- Create Source -->
+        <div class="panel" id="panel-source-create">
+            <div class="panel-header">
+                <span class="panel-method POST">POST</span>
+                <div class="panel-info"><h2>Create Data Source</h2><div class="endpoint-path"><em>/api/sources</em></div></div>
+            </div>
+            <div class="form-grid full">
+                <div class="field">
+                    <label>Payload <span class="required">*</span></label>
+                    <textarea id="sc-body">{
+  "sourceId": "bloomberg",
+  "name": "Bloomberg Terminal",
+  "description": "Financial data from Bloomberg",
+  "active": true
+}</textarea>
+                </div>
+            </div>
+            <button class="btn btn-blue" onclick="call('source-create')">Send Request</button>
+            <div class="response-box">
+                <div class="response-box-header"><span class="label">Response</span><span class="status-chip status-idle" id="status-source-create">—</span></div>
+                <div class="response-body empty" id="body-source-create">No response yet.</div>
+            </div>
+        </div>
+
+        <!-- Update Source -->
+        <div class="panel" id="panel-source-update">
+            <div class="panel-header">
+                <span class="panel-method PUT">PUT</span>
+                <div class="panel-info"><h2>Update Data Source</h2><div class="endpoint-path"><em>/api/sources/{id}</em></div></div>
+            </div>
+            <div class="form-grid">
+                <div class="field"><label>Source ID <span class="required">*</span></label><input id="su-id" placeholder="e.g. bloomberg"/></div>
+            </div>
+            <div class="field">
+                <label>Payload <span class="required">*</span></label>
+                <textarea id="su-body">{
+  "name": "Bloomberg Terminal (Updated)",
+  "active": false
+}</textarea>
+            </div>
+            <button class="btn btn-primary" onclick="call('source-update')">Send Request</button>
+            <div class="response-box">
+                <div class="response-box-header"><span class="label">Response</span><span class="status-chip status-idle" id="status-source-update">—</span></div>
+                <div class="response-body empty" id="body-source-update">No response yet.</div>
+            </div>
+        </div>
+
+        <!-- Ingest ETL -->
+        <div class="panel" id="panel-ingest">
+            <div class="panel-header">
+                <span class="panel-method POST">POST</span>
+                <div class="panel-info"><h2>Ingest ETL Data</h2><div class="endpoint-path"><em>/api/warehouse/ingest</em></div></div>
+            </div>
+            <div class="form-grid full">
+                <div class="field">
+                    <label>Payload <span class="required">*</span> — must include <em>assetId</em></label>
+                    <textarea id="ing-body">{
+  "assetId": "AAPL",
+  "dataSourceId": "etl-pipeline",
+  "businessDate": "2026-06-01",
+  "price": 182.5,
+  "volume": 35000000
+}</textarea>
+                </div>
+            </div>
+            <button class="btn btn-blue" onclick="call('ingest')">Send Request</button>
+            <div class="response-box">
+                <div class="response-box-header"><span class="label">Response</span><span class="status-chip status-idle" id="status-ingest">—</span></div>
+                <div class="response-body empty" id="body-ingest">No response yet.</div>
+            </div>
+        </div>
+
+    </main>
+</div>
+
+<script>
+    const BASE = () => document.getElementById('baseUrl').value.replace(/\/$/, '');
+
+    // ── Navigation ───────────────────────────────────────────────────────────────
+    function show(key) {
+        document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+        document.getElementById('panel-' + key)?.classList.add('active');
+        event.currentTarget.classList.add('active');
+    }
+
+    // ── JSON Highlight ───────────────────────────────────────────────────────────
+    function highlight(json) {
+        if (typeof json !== 'string') json = JSON.stringify(json, null, 2);
+        return json
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, m => {
+                if (/^"/.test(m)) return /:$/.test(m) ? `<span class="json-key">${m}</span>` : `<span class="json-str">${m}</span>`;
+                if (/true|false/.test(m)) return `<span class="json-bool">${m}</span>`;
+                if (/null/.test(m)) return `<span class="json-null">${m}</span>`;
+                return `<span class="json-num">${m}</span>`;
+            });
+    }
+
+    // ── Response helpers ─────────────────────────────────────────────────────────
+    function setLoading(key) {
+        document.getElementById('body-' + key).className = 'response-body';
+        document.getElementById('body-' + key).innerHTML = `<span class="spinner"></span> Waiting for response...`;
+        document.getElementById('status-' + key).className = 'status-chip status-idle';
+        document.getElementById('status-' + key).textContent = '...';
+    }
+
+    function setResponse(key, status, data) {
+        const el = document.getElementById('body-' + key);
+        const chip = document.getElementById('status-' + key);
+        chip.className = 'status-chip ' + (status >= 200 && status < 300 ? 'status-ok' : 'status-err');
+        chip.textContent = status;
+        el.className = 'response-body';
+        try {
+            const parsed = typeof data === 'string' ? JSON.parse(data) : data;
+            el.innerHTML = highlight(JSON.stringify(parsed, null, 2));
+        } catch { el.textContent = data; }
+    }
+
+    function setError(key, err) {
+        document.getElementById('body-' + key).className = 'response-body';
+        document.getElementById('body-' + key).textContent = 'Network error: ' + err.message + '\n\nMake sure your Spring Boot server is running and CORS is enabled.';
+        document.getElementById('status-' + key).className = 'status-chip status-err';
+        document.getElementById('status-' + key).textContent = 'ERR';
+    }
+
+    async function apiFetch(key, url, options = {}) {
+        setLoading(key);
+        try {
+            const res = await fetch(url, { headers: { 'Content-Type': 'application/json', ...options.headers }, ...options });
+            const ct = res.headers.get('content-type') || '';
+            const body = ct.includes('application/json') ? await res.json() : await res.text();
+            setResponse(key, res.status, body);
+        } catch (e) { setError(key, e); }
+    }
+
+    // ── Formatted Time Series with pagination ────────────────────────────────────
+    let dfCurrentPage = 0;
+
+    function dfBuildParams(page) {
+        return new URLSearchParams({
+            assetId:           document.getElementById('df-asset').value.trim(),
+            dataSourceId:      document.getElementById('df-source').value.trim(),
+            startBusinessDate: document.getElementById('df-start').value,
+            endBusinessDate:   document.getElementById('df-end').value,
+            includeAttributes: document.getElementById('df-attrs').value,
+            page:              page,
+            size:              document.getElementById('df-size').value,
+        });
+    }
+
+    async function dfFetch(page) {
+        const key = 'data-formatted';
+        const assetId = document.getElementById('df-asset').value.trim();
+        const sourceId = document.getElementById('df-source').value.trim();
+        if (!assetId || !sourceId) { alert('Asset ID and Data Source ID are required.'); return; }
+
+        setLoading(key);
+        const url = `${BASE()}/api/data?${dfBuildParams(page)}`;
+
+        try {
+            const res = await fetch(url, { headers: { 'Content-Type': 'application/json' } });
+            const ct = res.headers.get('content-type') || '';
+            const body = ct.includes('application/json') ? await res.json() : await res.text();
+
+            dfCurrentPage = page;
+
+            // Show pagination bar
+            const pag = document.getElementById('df-pagination');
+            pag.style.display = 'flex';
+
+            // Update page info
+            const pageInfo = document.getElementById('df-page-info');
+            const size = parseInt(document.getElementById('df-size').value);
+
+            // Try to detect if there's a next page from the response
+            let hasNext = false;
+            if (body && typeof body === 'object') {
+                // Spring Slice/Page response typically has 'last', 'content', 'numberOfElements'
+                if (body.last !== undefined) hasNext = !body.last;
+                else if (Array.isArray(body.content)) hasNext = body.content.length === size;
+                else if (Array.isArray(body)) hasNext = body.length === size;
+            }
+
+            pageInfo.textContent = `Page ${page + 1}`;
+            document.getElementById('df-prev').disabled = page === 0;
+            document.getElementById('df-next').disabled = !hasNext;
+
+            setResponse(key, res.status, body);
+        } catch (e) { setError(key, e); }
+    }
+
+    function dfSearch() {
+        dfFetch(0);
+    }
+
+    function dfPage(delta) {
+        dfFetch(dfCurrentPage + delta);
+    }
+
+    // ── Generic v() helper ───────────────────────────────────────────────────────
+    function v(id) { return document.getElementById(id).value.trim(); }
+
+    // ── All other API calls ──────────────────────────────────────────────────────
+    const CALLS = {
+        'asset-list':   () => apiFetch('asset-list',   `${BASE()}/api/assets`),
+        'asset-get':    () => apiFetch('asset-get',     `${BASE()}/api/assets/${encodeURIComponent(v('ag-id'))}`),
+        'asset-latest': () => apiFetch('asset-latest',  `${BASE()}/api/assets/${encodeURIComponent(v('al-id'))}/latest`),
+        'asset-create': () => apiFetch('asset-create',  `${BASE()}/api/assets/create`, { method: 'POST', body: v('ac-body') }),
+        'asset-update': () => apiFetch('asset-update',  `${BASE()}/api/assets/${encodeURIComponent(v('au-id'))}`, { method: 'PUT', body: v('au-body') }),
+        'data-timeseries': () => apiFetch('data-timeseries', `${BASE()}/api/data/${encodeURIComponent(v('dt-asset'))}/${encodeURIComponent(v('dt-source'))}`),
+        'data-range': () => {
+            const params = new URLSearchParams({ start: v('dr-start'), end: v('dr-end') });
+            apiFetch('data-range', `${BASE()}/api/data/${encodeURIComponent(v('dr-asset'))}/${encodeURIComponent(v('dr-source'))}/range?${params}`);
+        },
+        'data-create':   () => apiFetch('data-create',  `${BASE()}/api/data`, { method: 'POST', body: v('dc-body') }),
+        'source-list':   () => apiFetch('source-list',  `${BASE()}/api/sources`),
+        'source-get':    () => apiFetch('source-get',   `${BASE()}/api/sources/${encodeURIComponent(v('sg-id'))}`),
+        'source-create': () => apiFetch('source-create',`${BASE()}/api/sources`, { method: 'POST', body: v('sc-body') }),
+        'source-update': () => apiFetch('source-update',`${BASE()}/api/sources/${encodeURIComponent(v('su-id'))}`, { method: 'PUT', body: v('su-body') }),
+        'ingest':        () => apiFetch('ingest',        `${BASE()}/api/warehouse/ingest`, { method: 'POST', body: v('ing-body') }),
+    };
+
+    function call(key) { CALLS[key]?.(); }
+</script>
+</body>
+</html>

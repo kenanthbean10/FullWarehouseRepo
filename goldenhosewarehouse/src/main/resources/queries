@@ -1,0 +1,65 @@
+USE acme_productions;
+
+CREATE TABLE asset (
+                       id TEXT,
+                       system_date TIMESTAMP,
+                       name TEXT,
+                       description TEXT,
+                       attributes MAP<TEXT, TEXT>,
+                       PRIMARY KEY (id, system_date)
+) WITH CLUSTERING ORDER BY (system_date DESC);
+
+select * from acme_productions.asset
+select * from acme_productions.asset where id = "TSLA"
+CREATE TABLE data_source (
+                             id TEXT,
+                             system_date TIMESTAMP,
+                             name TEXT,
+                             description TEXT,
+                             attributes MAP<TEXT, TEXT>,
+                             PRIMARY KEY (id, system_date)
+) WITH CLUSTERING ORDER BY (system_date DESC);
+
+
+CREATE TABLE acme_productions.datan (
+                                           asset_id text,
+                                           data_source_id text,
+                                           business_date date,
+                                           system_date timestamp,
+                                           values_double map<text, double>,
+                                           values_int map<text, int>,
+                                           values_text map<text, text>,
+                                           PRIMARY KEY ((asset_id, data_source_id), business_date, system_date)
+) WITH CLUSTERING ORDER BY (business_date DESC, system_date DESC);
+select * from acme_productions.datan;
+ALTER TABLE acme_productions.datan ADD price double;
+ALTER TABLE acme_productions.datan ADD low double;
+ALTER TABLE acme_productions.datan ADD high double;
+-- الخريطة موجودة بالفعل في تعريف الجدول الخاص بك (values_double)
+alter table acme_productions.datan drop price;
+ALTER TABLE acme_productions.datan DROP price;
+ALTER TABLE acme_productions.datan DROP high;
+ALTER TABLE acme_productions.datan DROP low;
+
+
+select * from acme_productions.datan;
+
+
+CREATE TABLE data (
+                      asset_id TEXT,
+                      data_source_id TEXT,
+                      business_date DATE,
+                      system_date TIMESTAMP,
+                      values MAP<TEXT, DOUBLE>,
+                      PRIMARY KEY ((asset_id, data_source_id), business_date, system_date)
+) WITH CLUSTERING ORDER BY (business_date DESC, system_date DESC);
+
+-- إضافة خريطة الأرقام الصحيحة
+ALTER TABLE acme_productions.data ADD valuesint MAP<TEXT, INT>;
+
+-- إضافة خريطة النصوص
+ALTER TABLE acme_productions.data ADD valuestext MAP<TEXT, TEXT>;
+
+-- إعادة تسمية الخريطة القديمة لتطابق المخطط (اختياري ولكن يفضل للاتساق)
+ALTER TABLE acme_productions.data RENAME values TO ;
+select * from acme_productions.datan;

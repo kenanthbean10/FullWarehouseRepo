@@ -254,6 +254,14 @@
             <div class="nav-group-label">Ingestion</div>
             <div class="nav-item" onclick="show('ingest')"><span class="method-badge POST">POST</span> Ingest ETL Data</div>
         </div>
+
+        <!-- New Telemetry group -->
+        <div class="nav-group">
+            <div class="nav-group-label">Telemetry</div>
+            <div class="nav-item" onclick="show('telemetry')">
+                <span class="method-badge GET">GET</span> Ingestion Stats
+            </div>
+        </div>
     </nav>
 
     <main>
@@ -520,7 +528,7 @@
             </div>
         </div>
 
-        <!-- Create Source -->
+        <!-- Create Source – UPDATED with Yahoo Finance payload -->
         <div class="panel" id="panel-source-create">
             <div class="panel-header">
                 <span class="panel-method POST">POST</span>
@@ -530,10 +538,14 @@
                 <div class="field">
                     <label>Payload <span class="required">*</span></label>
                     <textarea id="sc-body">{
-  "sourceId": "bloomberg",
-  "name": "Bloomberg Terminal",
-  "description": "Financial data from Bloomberg",
-  "active": true
+    "id": "YAHOO",
+    "name": "Yahoo Finance",
+    "description": "Global financial data provider",
+    "attributes": {
+        "url": "https://finance.yahoo.com",
+        "reliability": "High",
+        "update_frequency": "Real-time"
+    }
 }</textarea>
                 </div>
             </div>
@@ -589,6 +601,29 @@
             <div class="response-box">
                 <div class="response-box-header"><span class="label">Response</span><span class="status-chip status-idle" id="status-ingest">—</span></div>
                 <div class="response-body empty" id="body-ingest">No response yet.</div>
+            </div>
+        </div>
+
+        <!-- Telemetry Panel (new) -->
+        <div class="panel" id="panel-telemetry">
+            <div class="panel-header">
+                <span class="panel-method GET">GET</span>
+                <div class="panel-info">
+                    <h2>Ingestion Telemetry</h2>
+                    <div class="endpoint-path"><em>http://localhost:8082/api/telemetry/pulse</em></div>
+                </div>
+            </div>
+            <div class="callout">
+                <strong>Pipeline health & counters</strong> – shows records fetched, transformed, stored, and failed.
+
+            </div>
+            <button class="btn btn-primary" onclick="fetchTelemetry()">Refresh Telemetry</button>
+            <div class="response-box" style="margin-top: 16px;">
+                <div class="response-box-header">
+                    <span class="label">Telemetry Data</span>
+                    <span class="status-chip status-idle" id="status-telemetry">—</span>
+                </div>
+                <div class="response-body empty" id="body-telemetry">Click "Refresh Telemetry" to load ingestion statistics.</div>
             </div>
         </div>
 
@@ -654,6 +689,20 @@
             const body = ct.includes('application/json') ? await res.json() : await res.text();
             setResponse(key, res.status, body);
         } catch (e) { setError(key, e); }
+    }
+
+    // ── Telemetry fetch (calls ETL service on port 8082) ─────────────────────────
+    async function fetchTelemetry() {
+        const key = 'telemetry';
+        const url = 'http://localhost:8082/api/telemetry/pulse';
+        setLoading(key);
+        try {
+            const res = await fetch(url, { headers: { 'Content-Type': 'application/json' } });
+            const body = await res.json();
+            setResponse(key, res.status, body);
+        } catch (e) {
+            setError(key, e);
+        }
     }
 
     // ── Formatted Time Series with pagination ────────────────────────────────────

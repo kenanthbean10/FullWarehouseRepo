@@ -13,6 +13,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/telemetry")
+@CrossOrigin(origins = "*")    
 public class TelemetryController {
     private final IngestionPulse ingestionPulse;
 

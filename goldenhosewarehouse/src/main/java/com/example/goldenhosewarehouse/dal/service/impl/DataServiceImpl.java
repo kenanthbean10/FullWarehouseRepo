@@ -8,6 +8,7 @@ import com.example.goldenhosewarehouse.dal.repository.DataRepository;
 import com.example.goldenhosewarehouse.dal.service.DataService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Service;
 
@@ -135,68 +136,46 @@ public DataEntity saveData(DataEntity dataRecord) {
             LocalDate startDate, LocalDate endDate,
             boolean includeAttributes, int page, int size) {
 
-        // We need to collect at least (page * size) distinct dates,
-        // but pagination is applied AFTER deduplication.
-        // The caller expects the page-th page of DISTINCT dates.
-
-        int targetStart = page * size;                // first distinct date index to return
-        int targetEnd = targetStart + size;           // exclusive upper bound
-
-        List<TimeSeriesRecordDto> allDistinctRecords = new ArrayList<>();
+        // Step 1: Collect all distinct records using safe sequential paging
+        List<TimeSeriesRecordDto> allDistinct = new ArrayList<>();
         Set<LocalDate> seenDates = new HashSet<>();
         Set<String> attributeKeys = new LinkedHashSet<>();
 
-        int currentPage = 0;
-        boolean hasMore = true;
-
-        // Keep fetching raw pages until we have enough distinct dates OR no more data
-        while (hasMore && allDistinctRecords.size() < targetEnd) {
-            Slice<DataEntity> slice = dataRepository.findByDateRange(
-                    assetId, dataSourceId,
-                    startDate, endDate,
-                    PageRequest.of(currentPage, size * 5)  // fetch a larger chunk (5x requested size) to reduce round trips
-            );
-
+        Pageable pageable = PageRequest.of(0, 5000); // initial request, page 0, large chunk
+        Slice<DataEntity> slice;
+        do {
+            slice = dataRepository.findByDateRange(assetId, dataSourceId, startDate, endDate, pageable);
             for (DataEntity entity : slice.getContent()) {
                 LocalDate bDate = entity.getBusinessDate();
                 if (!seenDates.contains(bDate)) {
                     seenDates.add(bDate);
 
-                    // Merge value maps
                     Map<String, Object> merged = new LinkedHashMap<>();
                     if (entity.getValuesdouble() != null) {
-                        entity.getValuesdouble().forEach((k, v) -> {
-                            merged.put(k, v);
-                            attributeKeys.add(k);
-                        });
+                        entity.getValuesdouble().forEach((k, v) -> { merged.put(k, v); attributeKeys.add(k); });
                     }
                     if (entity.getValuesInt() != null) {
-                        entity.getValuesInt().forEach((k, v) -> {
-                            merged.put(k, v);
-                            attributeKeys.add(k);
-                        });
+                        entity.getValuesInt().forEach((k, v) -> { merged.put(k, v); attributeKeys.add(k); });
                     }
                     if (entity.getValuesText() != null) {
-                        entity.getValuesText().forEach((k, v) -> {
-                            merged.put(k, v);
-                            attributeKeys.add(k);
-                        });
+                        entity.getValuesText().forEach((k, v) -> { merged.put(k, v); attributeKeys.add(k); });
                     }
-                    allDistinctRecords.add(new TimeSeriesRecordDto(bDate, merged));
+                    allDistinct.add(new TimeSeriesRecordDto(bDate, merged));
                 }
             }
-            hasMore = slice.hasNext();
-            currentPage++;
-        }
+            // Use the paging state from the slice for the next request
+            pageable = slice.hasNext() ? slice.nextPageable() : null;
+        } while (pageable != null);
 
-        // Now extract the requested page from the distinct list
-        int fromIndex = Math.min(targetStart, allDistinctRecords.size());
-        int toIndex = Math.min(targetEnd, allDistinctRecords.size());
-        List<TimeSeriesRecordDto> pagedRecords = allDistinctRecords.subList(fromIndex, toIndex);
+        // Step 2: In‑memory pagination (slice the already‑collected list)
+        int fromIndex = page * size;
+        int toIndex = Math.min(fromIndex + size, allDistinct.size());
+        List<TimeSeriesRecordDto> pagedRecords = (fromIndex < allDistinct.size())
+                ? allDistinct.subList(fromIndex, toIndex)
+                : Collections.emptyList();
 
-        TimeSeriesResponse.DataBlock dataBlock =
-                new TimeSeriesResponse.DataBlock(assetId, dataSourceId, pagedRecords);
-
+        // Step 3: Build the response
+        TimeSeriesResponse.DataBlock dataBlock = new TimeSeriesResponse.DataBlock(assetId, dataSourceId, pagedRecords);
         Set<String> attrs = includeAttributes ? attributeKeys : null;
         return new TimeSeriesResponse(dataBlock, attrs);
     }

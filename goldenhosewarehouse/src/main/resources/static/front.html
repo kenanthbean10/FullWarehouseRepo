@@ -189,6 +189,32 @@
         .response-body { padding: 16px; font-size: 11px; line-height: 1.7; color: var(--text); max-height: 500px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; }
         .response-body.empty { color: var(--text-dim); font-style: italic; }
 
+        /* Table styles for formatted time series */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 11px;
+            font-family: var(--mono);
+        }
+        .data-table th, .data-table td {
+            border: 1px solid var(--border-bright);
+            padding: 8px 12px;
+            text-align: left;
+            vertical-align: top;
+        }
+        .data-table th {
+            background: rgba(64,192,240,0.1);
+            color: var(--accent2);
+            font-weight: 600;
+        }
+        .data-table tr:hover {
+            background: rgba(255,255,255,0.03);
+        }
+        .table-container {
+            overflow-x: auto;
+            padding: 16px;
+        }
+
         .spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid var(--border-bright); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.6s linear infinite; vertical-align: middle; margin-right: 6px; }
         @keyframes spin { to { transform: rotate(360deg); } }
 
@@ -255,7 +281,6 @@
             <div class="nav-item" onclick="show('ingest')"><span class="method-badge POST">POST</span> Ingest ETL Data</div>
         </div>
 
-        <!-- New Telemetry group -->
         <div class="nav-group">
             <div class="nav-group-label">Telemetry</div>
             <div class="nav-item" onclick="show('telemetry')">
@@ -266,20 +291,20 @@
 
     <main>
 
-        <!-- ★ FEATURED: Formatted Time Series (Quick Access) -->
+        <!-- ★ FEATURED: Formatted Time Series (Quick Access) – now with table view -->
         <div class="panel active" id="panel-data-formatted">
             <div class="panel-header">
                 <span class="panel-method GET">GET</span>
                 <div class="panel-info">
-                    <div class="panel-featured-badge">⭐ Recommended — Paginated &amp; Safe</div>
+                    <div class="panel-featured-badge">⭐ Recommended — Paginated &amp; Table View</div>
                     <h2>Formatted Time Series</h2>
                     <div class="endpoint-path"><em>/api/data?assetId=&amp;dataSourceId=&amp;startBusinessDate=&amp;endBusinessDate=&amp;...</em></div>
                 </div>
             </div>
 
             <div class="callout">
-                <strong>Use this endpoint</strong> to query time series data safely. It supports <strong>pagination</strong> (page + size) so the browser never freezes.
-                Fill in the fields below and click <strong>Send Request</strong>. Use <strong>Prev / Next</strong> to page through results.
+                <strong>Use this endpoint</strong> to query time series data safely. It supports <strong>pagination</strong> (page + size). Results are shown in an easy‑to‑read table.
+                Fill in the fields below and click <strong>Send Request</strong>. Use <strong>Prev / Next</strong> to browse pages.
             </div>
 
             <div class="form-grid cols3">
@@ -328,14 +353,16 @@
 
             <div class="response-box">
                 <div class="response-box-header">
-                    <span class="label">Response</span>
+                    <span class="label">Response (Table)</span>
                     <span class="status-chip status-idle" id="status-data-formatted">—</span>
                 </div>
-                <div class="response-body empty" id="body-data-formatted">Fill in the fields above and click Send Request.</div>
+                <div id="data-formatted-table-container" class="table-container">
+                    <div class="response-body empty" id="body-data-formatted">Fill in the fields above and click Send Request.</div>
+                </div>
             </div>
         </div>
 
-        <!-- Formatted Time Series (Data section duplicate — same logic) -->
+        <!-- Formatted Time Series (Data section duplicate – redirect to the same panel) -->
         <div class="panel" id="panel-data-formatted2">
             <div class="panel-header">
                 <span class="panel-method GET">GET</span>
@@ -445,8 +472,6 @@
             </div>
         </div>
 
-
-
         <!-- Time Series Range -->
         <div class="panel" id="panel-data-range">
             <div class="panel-header">
@@ -528,7 +553,7 @@
             </div>
         </div>
 
-        <!-- Create Source – UPDATED with Yahoo Finance payload -->
+        <!-- Create Source – updated with Yahoo Finance payload -->
         <div class="panel" id="panel-source-create">
             <div class="panel-header">
                 <span class="panel-method POST">POST</span>
@@ -604,7 +629,7 @@
             </div>
         </div>
 
-        <!-- Telemetry Panel (new) -->
+        <!-- Telemetry Panel -->
         <div class="panel" id="panel-telemetry">
             <div class="panel-header">
                 <span class="panel-method GET">GET</span>
@@ -615,7 +640,7 @@
             </div>
             <div class="callout">
                 <strong>Pipeline health & counters</strong> – shows records fetched, transformed, stored, and failed.
-
+                Data comes from the ETL service (<code>goldenetl</code> on port 8082).
             </div>
             <button class="btn btn-primary" onclick="fetchTelemetry()">Refresh Telemetry</button>
             <div class="response-box" style="margin-top: 16px;">
@@ -641,7 +666,7 @@
         event.currentTarget.classList.add('active');
     }
 
-    // ── JSON Highlight ───────────────────────────────────────────────────────────
+    // ── JSON Highlight (still used for other panels) ────────────────────────────
     function highlight(json) {
         if (typeof json !== 'string') json = JSON.stringify(json, null, 2);
         return json
@@ -654,31 +679,47 @@
             });
     }
 
-    // ── Response helpers ─────────────────────────────────────────────────────────
+    // ── Response helpers (kept for other panels) ────────────────────────────────
     function setLoading(key) {
-        document.getElementById('body-' + key).className = 'response-body';
-        document.getElementById('body-' + key).innerHTML = `<span class="spinner"></span> Waiting for response...`;
-        document.getElementById('status-' + key).className = 'status-chip status-idle';
-        document.getElementById('status-' + key).textContent = '...';
+        const bodyEl = document.getElementById('body-' + key);
+        if (bodyEl) {
+            bodyEl.className = 'response-body';
+            bodyEl.innerHTML = `<span class="spinner"></span> Waiting for response...`;
+        }
+        const chip = document.getElementById('status-' + key);
+        if (chip) {
+            chip.className = 'status-chip status-idle';
+            chip.textContent = '...';
+        }
     }
 
     function setResponse(key, status, data) {
         const el = document.getElementById('body-' + key);
         const chip = document.getElementById('status-' + key);
-        chip.className = 'status-chip ' + (status >= 200 && status < 300 ? 'status-ok' : 'status-err');
-        chip.textContent = status;
-        el.className = 'response-body';
-        try {
-            const parsed = typeof data === 'string' ? JSON.parse(data) : data;
-            el.innerHTML = highlight(JSON.stringify(parsed, null, 2));
-        } catch { el.textContent = data; }
+        if (chip) {
+            chip.className = 'status-chip ' + (status >= 200 && status < 300 ? 'status-ok' : 'status-err');
+            chip.textContent = status;
+        }
+        if (el) {
+            el.className = 'response-body';
+            try {
+                const parsed = typeof data === 'string' ? JSON.parse(data) : data;
+                el.innerHTML = highlight(JSON.stringify(parsed, null, 2));
+            } catch { el.textContent = data; }
+        }
     }
 
     function setError(key, err) {
-        document.getElementById('body-' + key).className = 'response-body';
-        document.getElementById('body-' + key).textContent = 'Network error: ' + err.message + '\n\nMake sure your Spring Boot server is running and CORS is enabled.';
-        document.getElementById('status-' + key).className = 'status-chip status-err';
-        document.getElementById('status-' + key).textContent = 'ERR';
+        const el = document.getElementById('body-' + key);
+        const chip = document.getElementById('status-' + key);
+        if (el) {
+            el.className = 'response-body';
+            el.textContent = 'Network error: ' + err.message + '\n\nMake sure your Spring Boot server is running and CORS is enabled.';
+        }
+        if (chip) {
+            chip.className = 'status-chip status-err';
+            chip.textContent = 'ERR';
+        }
     }
 
     async function apiFetch(key, url, options = {}) {
@@ -691,7 +732,7 @@
         } catch (e) { setError(key, e); }
     }
 
-    // ── Telemetry fetch (calls ETL service on port 8082) ─────────────────────────
+    // ── Telemetry fetch ─────────────────────────────────────────────────────────
     async function fetchTelemetry() {
         const key = 'telemetry';
         const url = 'http://localhost:8082/api/telemetry/pulse';
@@ -705,7 +746,58 @@
         }
     }
 
-    // ── Formatted Time Series with pagination ────────────────────────────────────
+    // ── Table rendering for formatted time series ───────────────────────────────
+    function renderTable(assetId, dataSourceId, records) {
+        const container = document.getElementById('data-formatted-table-container');
+        if (!container) return;
+        if (!records || records.length === 0) {
+            container.innerHTML = '<div class="response-body empty">No records found for the selected date range.</div>';
+            return;
+        }
+
+        // Collect all unique keys from the first record's "values" object
+        const firstValues = records[0].values || {};
+        const allKeys = Object.keys(firstValues).sort();
+
+        // Build table
+        let html = '<div class="table-container"><table class="data-table">';
+        html += '<thead><tr><th>Business Date</th>';
+        for (let key of allKeys) {
+            html += `<th>${escapeHtml(key)}</th>`;
+        }
+        html += '</tr></thead><tbody>';
+
+        for (let rec of records) {
+            const date = rec.businessDate || '';
+            const values = rec.values || {};
+            html += '<tr>';
+            html += `<td>${escapeHtml(date)}</td>`;
+            for (let key of allKeys) {
+                let val = values[key];
+                if (val === undefined || val === null) val = '';
+                // format numbers nicely
+                if (typeof val === 'number') {
+                    val = val.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+                }
+                html += `<td>${escapeHtml(String(val))}</td>`;
+            }
+            html += '</tr>';
+        }
+        html += '</tbody></table></div>';
+        container.innerHTML = html;
+    }
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str.replace(/[&<>]/g, function(m) {
+            if (m === '&') return '&amp;';
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            return m;
+        });
+    }
+
+    // ── Formatted Time Series with pagination + table ───────────────────────────
     let dfCurrentPage = 0;
 
     function dfBuildParams(page) {
@@ -726,7 +818,17 @@
         const sourceId = document.getElementById('df-source').value.trim();
         if (!assetId || !sourceId) { alert('Asset ID and Data Source ID are required.'); return; }
 
-        setLoading(key);
+        // Show loading indicator in the table container
+        const container = document.getElementById('data-formatted-table-container');
+        if (container) {
+            container.innerHTML = '<div class="response-body"><span class="spinner"></span> Loading...</div>';
+        }
+        const chip = document.getElementById('status-data-formatted');
+        if (chip) {
+            chip.className = 'status-chip status-idle';
+            chip.textContent = '...';
+        }
+
         const url = `${BASE()}/api/data?${dfBuildParams(page)}`;
 
         try {
@@ -736,29 +838,66 @@
 
             dfCurrentPage = page;
 
-            // Show pagination bar
             const pag = document.getElementById('df-pagination');
-            pag.style.display = 'flex';
+            if (pag) pag.style.display = 'flex';
 
-            // Update page info
             const pageInfo = document.getElementById('df-page-info');
             const size = parseInt(document.getElementById('df-size').value);
-
-            // Try to detect if there's a next page from the response
             let hasNext = false;
+            let records = null;
+
+            // Extract records from custom response
             if (body && typeof body === 'object') {
-                // Spring Slice/Page response typically has 'last', 'content', 'numberOfElements'
-                if (body.last !== undefined) hasNext = !body.last;
-                else if (Array.isArray(body.content)) hasNext = body.content.length === size;
-                else if (Array.isArray(body)) hasNext = body.length === size;
+                if (body.data && Array.isArray(body.data.records)) {
+                    records = body.data.records;
+                } else if (body.data && Array.isArray(body.data.content)) {
+                    records = body.data.content;
+                } else if (Array.isArray(body.content)) {
+                    records = body.content;
+                } else if (Array.isArray(body)) {
+                    records = body;
+                }
             }
 
-            pageInfo.textContent = `Page ${page + 1}`;
-            document.getElementById('df-prev').disabled = page === 0;
-            document.getElementById('df-next').disabled = !hasNext;
+            // Determine next page existence
+            if (body && typeof body === 'object') {
+                if (body.last !== undefined) hasNext = !body.last;
+                else if (body.hasNext !== undefined) hasNext = body.hasNext;
+                else if (records !== null) {
+                    hasNext = records.length === size;
+                }
+            }
+            if (!records || records.length === 0) hasNext = false;
 
-            setResponse(key, res.status, body);
-        } catch (e) { setError(key, e); }
+            if (pageInfo) pageInfo.textContent = `Page ${page + 1}`;
+            const prevBtn = document.getElementById('df-prev');
+            const nextBtn = document.getElementById('df-next');
+            if (prevBtn) prevBtn.disabled = page === 0;
+            if (nextBtn) nextBtn.disabled = !hasNext;
+
+            // Update status chip and render table
+            if (chip) {
+                chip.className = 'status-chip ' + (res.status >= 200 && res.status < 300 ? 'status-ok' : 'status-err');
+                chip.textContent = res.status;
+            }
+
+            if (res.status >= 200 && res.status < 300) {
+                if (records && records.length > 0) {
+                    renderTable(assetId, sourceId, records);
+                } else {
+                    if (container) container.innerHTML = '<div class="response-body empty">No records found for the selected date range.</div>';
+                }
+            } else {
+                // Show error as text
+                if (container) container.innerHTML = `<div class="response-body">Error ${res.status}: ${typeof body === 'string' ? body : JSON.stringify(body)}</div>`;
+            }
+        } catch (e) {
+            if (container) container.innerHTML = `<div class="response-body">Network error: ${e.message}</div>`;
+            if (chip) {
+                chip.className = 'status-chip status-err';
+                chip.textContent = 'ERR';
+            }
+        }
     }
 
     function dfSearch() {
@@ -769,10 +908,9 @@
         dfFetch(dfCurrentPage + delta);
     }
 
-    // ── Generic v() helper ───────────────────────────────────────────────────────
+    // ── Generic helpers for other panels ────────────────────────────────────────
     function v(id) { return document.getElementById(id).value.trim(); }
 
-    // ── All other API calls ──────────────────────────────────────────────────────
     const CALLS = {
         'asset-list':   () => apiFetch('asset-list',   `${BASE()}/api/assets`),
         'asset-get':    () => apiFetch('asset-get',     `${BASE()}/api/assets/${encodeURIComponent(v('ag-id'))}`),

@@ -396,23 +396,7 @@ Included requests:
 
 ---
 
-# Demo Video
 
-Add your demonstration video link here:
-
-```text
-https://your-demo-video-link
-```
-
-The video demonstrates:
-
-* End-to-end ingestion pipeline
-* Cassandra persistence
-* REST API queries
-* Spark analytics workflows
-* MCP integration
-
----
 
 # Troubleshooting
 
